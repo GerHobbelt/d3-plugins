@@ -6,9 +6,7 @@ const NORMAL_OPACITY = 0.4;
 const HOVER_OPACITY = 1;
 const HIGHLIGHT_OPACITY = 1;
 
-var margin = {top: 1, right: 1, bottom: 6, left: 1},
-width = 800 - margin.left - margin.right,
-height = 600 - margin.top - margin.bottom;
+var margin = {top: 1, right: 1, bottom: 6, left: 1};
 
 d3.dag = function() {
     var dag = {},
@@ -126,9 +124,8 @@ d3.dag = function() {
             ++x;
         }
 
-        //
         moveSinksRight(x);
-        scaleNodeBreadths((width - nodeWidth) / (x - 1));
+        scaleNodeBreadths((size[0] - nodeWidth) / (x - 1));
     }
 
     function moveSourcesRight() {
@@ -161,13 +158,11 @@ d3.dag = function() {
             .map(function(d) { return d.values; });
 
         initializeNodeDepth();
-        resolveCollisions();
         for (var alpha = 1; iterations > 0; --iterations) {
             relaxRightToLeft(alpha *= .99);
-            resolveCollisions();
             relaxLeftToRight(alpha);
-            resolveCollisions();
         }
+        verticalPositioning();
 
         function initializeNodeDepth() {
             nodesByBreadth.forEach(function(nodes) {
@@ -214,39 +209,30 @@ d3.dag = function() {
             }
         }
 
-        // Here is where we handle vertical positioning of nodes. The strategy
-        // is to start at the bottom and move toward the top, spacing them far
-        // enough apart to avoid collisions (nodePadding).
-        function resolveCollisions() {
+        function verticalPositioning() {
+            var bn = nodesByBreadth.length;
+            var breadth = 0;
+            function scalar() {
+                var x = (2.0 * breadth - (bn - 1)) / (bn - 1);
+                return 0.7 + 0.3 * x * x;
+            }
             nodesByBreadth.forEach(function(nodes) {
-                var node,
-                dy,
-                y0 = 0,
-                n = nodes.length,
-                i;
-
-                // Push any overlapping nodes down.
+                var node, n = nodes.length;
+                var a = scalar();
                 nodes.sort(ascendingDepth);
-                for (i = 0; i < n; ++i) {
+                for (var i = 0; i < n; ++i) {
                     node = nodes[i];
-                    dy = y0 - node.y;
-                    if (dy > 0) node.y += dy;
-                    y0 = node.y + node.dy + nodePadding;
+                    if (n > 1) {
+                        var ymax = size[1] - 15;
+                        var ymin = 15;
+                        var ymiddle = 0.5 * (ymin + ymax);
+                        ymax = ymiddle + a * (ymax - ymiddle);
+                        ymin = ymiddle + a * (ymin - ymiddle);
+                        node.y = ymin + i * (ymax - ymin) / (n - 1);
+                    } else
+                        node.y = size[1] / 2;
                 }
-
-                // If the bottommost node goes outside the bounds, push it back up.
-                dy = y0 - nodePadding - size[1];
-                if (dy > 0) {
-                    y0 = node.y -= dy;
-
-                    // Push any overlapping nodes back up.
-                    for (i = n - 2; i >= 0; --i) {
-                        node = nodes[i];
-                        dy = node.y + node.dy + nodePadding - y0;
-                        if (dy > 0) node.y -= dy;
-                        y0 = node.y;
-                    }
-                }
+                breadth++;
             });
         }
 
@@ -290,7 +276,7 @@ d3.dag = function() {
     return dag;
 };
 
-function makeDag(inputData) {
+function makeDag(inputData, width, height) {
     var svg = d3.select("#chart").append("svg")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
@@ -410,7 +396,8 @@ function makeDag(inputData) {
         d3.select(this)
             .attr("transform",
                   "translate(" + d.x + "," +
-                  (d.y = Math.max(0, Math.min(height - d.dy, d3.event.y)))
+                  (d.y = Math.max(15, Math.min(height - d.dy,
+                                               d3.event.y)))
                   + ")");
         dag.relayout();
         link.attr("d", path);
