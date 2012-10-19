@@ -39,6 +39,7 @@ d3.sankey = function() {
   sankey.layout = function(iterations) {
     computeNodeLinks();
     computeNodeValues();
+    markCycles();
     computeNodeBreadths();
     computeNodeDepths(iterations);
     computeLinkDepths();
@@ -54,6 +55,45 @@ d3.sankey = function() {
     var curvature = .5;
 
     function link(d) {
+    if( d.causesCycle ) {
+      // cycle node; reaches backward
+    
+      /*
+      The path will look like this, where 
+      s=source, t=target, ?q=quadratic focus point
+     (wq)-> /-----n-----\
+            |w          |
+            |           e 
+            \-t         |
+                     s--/ <-(eq)
+      */
+      // Quadratic path
+      var s_x = d.source.x + d.source.dx,
+         t_x = d.target.x,
+         s_y = d.source.y + d.sy + d.dy / 2,
+         t_y = d.target.y + d.ty + d.dy / 2;
+         e_x = s_x + (1.5 * d.dy);
+         e_y = s_y - (1 * d.dy);
+         eq_x = e_x;
+         eq_y = s_y;
+         ne_x = s_x;
+         ne_y = s_y - (2 * d.dy);
+         nw_x = t_x;
+         nw_y = ne_y;
+         w_x = t_x - (1 * d.dy);
+         w_y = (nw_y + t_y)/2;
+         wq_x = w_x;
+         wq_y = nw_y;
+    
+      return "M" + s_x + "," + s_y
+        + "Q" + eq_x + "," + eq_y + " " + e_x + "," + e_y 
+        + "T" + ne_x + "," + ne_y
+        + "L" + nw_x + "," + nw_y
+        + "Q" + wq_x + "," + wq_y + " " + w_x + "," + w_y
+        + "T" + t_x + "," + t_y;
+    
+    } else {
+      // regular forward node
       var x0 = d.source.x + d.source.dx,
           x1 = d.target.x,
           xi = d3.interpolateNumber(x0, x1),
@@ -65,6 +105,7 @@ d3.sankey = function() {
            + "C" + x2 + "," + y0
            + " " + x3 + "," + y1
            + " " + x1 + "," + y1;
+    }
     }
 
     link.curvature = function(_) {
@@ -118,7 +159,9 @@ d3.sankey = function() {
         node.x = x;
         node.dx = nodeWidth;
         node.sourceLinks.forEach(function(link) {
-          nextNodes.push(link.target);
+		  if( !link.causesCycle ) {
+            nextNodes.push(link.target);
+		  }
         });
       });
       remainingNodes = nextNodes;
@@ -287,6 +330,67 @@ d3.sankey = function() {
   function value(link) {
     return link.value;
   }
-
+  
+  /* Cycle Related computations */
+  function markCycles() {
+    // ideally, find the 'feedback arc set' and remove them. 
+    // This way is expensive, but should be fine for small numbers of links
+    var cycleMakers = [];
+    var addedLinks = new Array();
+    links.forEach(function(link) {
+      if( createsCycle( link.source, link.target, addedLinks ) ) {
+        cycleMakers.push( link );
+        link.causesCycle=true;
+      } else {
+        addedLinks.push(link);
+      }
+    });
+  };
+  
+  
+  function createsCycle( originalSource, nodeToCheck, graph ) {
+    if( graph.length == 0 ) {
+      return false;
+    }
+    
+    var nextLinks = findLinksOutward( nodeToCheck, graph );
+    // leaf node check
+    if( nextLinks.length == 0 ) {
+      return false;
+    }
+  
+    // cycle check
+    for( var i = 0; i < nextLinks.length; i++ ) {
+      var nextLink = nextLinks[i];
+  
+      if( nextLink.target.name === originalSource.name ) {
+        return true;
+      }
+    
+      // Recurse
+      if( createsCycle( originalSource, nextLink.target, graph ) ) {
+        return true;
+      }
+    }
+  
+    // Exhausted all links
+    return false;
+  };
+  
+  /* Given a node, find all links for which this is a source
+     in the current 'known' graph  */
+  function findLinksOutward( node, graph ) {
+    var children = [];
+  
+    for( var i = 0; i < graph.length; i++ ) {
+      if( node.name === graph[i].source.name ) {
+        children.push( graph[i] );
+      }
+    }
+  
+    return children;
+  }
+  
+  
   return sankey;
 };
