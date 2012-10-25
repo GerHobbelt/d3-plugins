@@ -4,7 +4,14 @@ d3.sankey = function() {
       nodePadding = 8,
       size = [1, 1],
       nodes = [],
-      links = [];
+      links = [],
+	  // cycle features
+	  cycleLaneNarrowWidth = 4,
+	  cycleLaneDistFromFwdPaths = -10,  // the distance above the paths to start showing 'cycle lanes'
+	  cycleDistFromNode = 30,      // linear path distance before arcing from node
+      cycleControlPointDist = 30,  // controls the significance of the cycle's arc
+	  cycleSmallWidthBuffer = 2  // distance between 'cycle lanes'
+	  ;
 
   sankey.nodeWidth = function(_) {
     if (!arguments.length) return nodeWidth;
@@ -17,6 +24,37 @@ d3.sankey = function() {
     nodePadding = +_;
     return sankey;
   };
+  
+  // cycle related attributes
+  sankey.cycleLaneNarrowWidth = function(_) {
+    if (!arguments.length) return cycleLaneNarrowWidth;
+    cycleLaneNarrowWidth = +_;
+    return sankey;
+  }
+  
+  sankey.cycleSmallWidthBuffer = function(_) {
+    if (!arguments.length) return cycleSmallWidthBuffer;
+    cycleSmallWidthBuffer = +_;
+    return sankey;
+  }
+  
+  sankey.cycleLaneDistFromFwdPaths = function(_) {
+    if (!arguments.length) return cycleLaneDistFromFwdPaths;
+    cycleLaneDistFromFwdPaths = +_;
+    return sankey;
+  }
+  
+  sankey.cycleDistFromNode = function(_) {
+    if (!arguments.length) return cycleDistFromNode;
+    cycleDistFromNode = +_;
+    return sankey;
+  }
+  
+  sankey.cycleControlPointDist = function(_) {
+    if (!arguments.length) return cycleControlPointDist;
+    cycleControlPointDist = +_;
+    return sankey;
+  }
 
   sankey.nodes = function(_) {
     if (!arguments.length) return nodes;
@@ -67,30 +105,40 @@ d3.sankey = function() {
             \-t         |
                      s--/ <-(eq)
       */
-      // Quadratic path
-      var s_x = d.source.x + d.source.dx,
-         t_x = d.target.x,
-         s_y = d.source.y + d.sy + d.dy / 2,
-         t_y = d.target.y + d.ty + d.dy / 2;
-         e_x = s_x + (1.5 * d.dy);
-         e_y = s_y - (1 * d.dy);
-         eq_x = e_x;
-         eq_y = s_y;
-         ne_x = s_x;
-         ne_y = s_y - (2 * d.dy);
-         nw_x = t_x;
-         nw_y = ne_y;
-         w_x = t_x - (1 * d.dy);
-         w_y = (nw_y + t_y)/2;
-         wq_x = w_x;
-         wq_y = nw_y;
-    
-      return "M" + s_x + "," + s_y
-        + "Q" + eq_x + "," + eq_y + " " + e_x + "," + e_y 
-        + "T" + ne_x + "," + ne_y
-        + "L" + nw_x + "," + nw_y
-        + "Q" + wq_x + "," + wq_y + " " + w_x + "," + w_y
-        + "T" + t_x + "," + t_y;
+      // Enclosed shape using curves n' stuff
+      var smallWidth = cycleLaneNarrowWidth,
+	    
+	    s_x = d.source.x + d.source.dx,
+	    s_y = d.source.y + d.sy + d.dy,
+		t_x = d.target.x,
+        t_y = d.target.y,
+		se_x = s_x + cycleDistFromNode,
+		se_y = s_y,
+		ne_x = se_x,
+		ne_y = cycleLaneDistFromFwdPaths - (d.cycleIndex * (smallWidth + cycleSmallWidthBuffer) ),  // above regular paths, in it's own 'cycle lane', with a buffer around it
+		nw_x = t_x - cycleDistFromNode,
+		nw_y = ne_y,
+		sw_x = nw_x,
+		sw_y = t_y + d.ty + d.dy;
+		
+      // start the path on the outer path boundary
+	  return "M" + s_x + "," + s_y
+		+ "L" + se_x + "," + se_y
+		+ "C" + (se_x + cycleControlPointDist) + "," + se_y + " " + (ne_x + cycleControlPointDist) + "," + ne_y + " " + ne_x + "," + ne_y
+		+ "H" + nw_x
+		+ "C" + (nw_x - cycleControlPointDist) + "," + nw_y + " " + (sw_x - cycleControlPointDist) + "," + sw_y + " " + sw_x + "," + sw_y
+		+ "H" + t_x 
+		//moving to inner path boundary
+		+ "V" + ( t_y + d.ty )
+		+ "H" + sw_x 
+		+ "C" + (sw_x - (cycleControlPointDist/2) + smallWidth) + "," + t_y + " " + 
+		        (nw_x - (cycleControlPointDist/2) + smallWidth) + "," + (nw_y + smallWidth) + " " + 
+				nw_x + "," + (nw_y + smallWidth)
+		+ "H" + (ne_x - smallWidth)
+		+ "C" + (ne_x + (cycleControlPointDist/2) - smallWidth) + "," + (ne_y + smallWidth) + " " + 
+		        (se_x + (cycleControlPointDist/2) - smallWidth) + "," + (se_y - d.dy) + " " + 
+				se_x + "," + (se_y - d.dy)
+		+ "L" + s_x + "," + (s_y - d.dy);
     
     } else {
       // regular forward node
@@ -168,7 +216,6 @@ d3.sankey = function() {
       ++x;
     }
 
-    //
     moveSinksRight(x);
     scaleNodeBreadths((size[0] - nodeWidth) / (x - 1));
   }
@@ -202,7 +249,6 @@ d3.sankey = function() {
         .entries(nodes)
         .map(function(d) { return d.values; });
 
-    //
     initializeNodeDepth();
     resolveCollisions();
     for (var alpha = 1; iterations > 0; --iterations) {
@@ -339,8 +385,9 @@ d3.sankey = function() {
     var addedLinks = new Array();
     links.forEach(function(link) {
       if( createsCycle( link.source, link.target, addedLinks ) ) {
+	    link.causesCycle=true;
+		link.cycleIndex = cycleMakers.length;
         cycleMakers.push( link );
-        link.causesCycle=true;
       } else {
         addedLinks.push(link);
       }
@@ -363,7 +410,7 @@ d3.sankey = function() {
     for( var i = 0; i < nextLinks.length; i++ ) {
       var nextLink = nextLinks[i];
   
-      if( nextLink.target.name === originalSource.name ) {
+      if( nextLink.target === originalSource ) {
         return true;
       }
     
@@ -383,7 +430,7 @@ d3.sankey = function() {
     var children = [];
   
     for( var i = 0; i < graph.length; i++ ) {
-      if( node.name === graph[i].source.name ) {
+      if( node == graph[i].source ) {
         children.push( graph[i] );
       }
     }
