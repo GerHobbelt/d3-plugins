@@ -10,8 +10,10 @@ d3.sankey = function() {
 	  cycleLaneDistFromFwdPaths = -10,  // the distance above the paths to start showing 'cycle lanes'
 	  cycleDistFromNode = 30,      // linear path distance before arcing from node
       cycleControlPointDist = 30,  // controls the significance of the cycle's arc
-	  cycleSmallWidthBuffer = 2  // distance between 'cycle lanes'
-	  ;
+	  cycleSmallWidthBuffer = 2,   // distance between 'cycle lanes'
+      overlapLinksAtSources = false,
+      overlapLinksAtTargets = false,
+      minValue = 1;
 
   sankey.nodeWidth = function(_) {
     if (!arguments.length) return nodeWidth;
@@ -71,6 +73,24 @@ d3.sankey = function() {
   sankey.size = function(_) {
     if (!arguments.length) return size;
     size = _;
+    return sankey;
+  };
+
+  sankey.overlapLinksAtSources = function(_) {
+    if (!arguments.length) return overlapLinksAtSources;
+    overlapLinksAtSources = _;
+    return sankey;
+  };
+
+  sankey.overlapLinksAtTargets = function(_) {
+    if (!arguments.length) return overlapLinksAtTargets;
+    overlapLinksAtTargets = _;
+    return sankey;
+  };
+
+  sankey.minValue = function(_) {
+    if (!arguments.length) return minValue;
+    minValue = _;
     return sankey;
   };
 
@@ -147,8 +167,8 @@ d3.sankey = function() {
           xi = d3.interpolateNumber(x0, x1),
           x2 = xi(curvature),
           x3 = xi(1 - curvature),
-          y0 = d.source.y + d.sy + d.dy / 2,
-          y1 = d.target.y + d.ty + d.dy / 2;
+          y0 = d.source.y + (overlapLinksAtSources ? 0 : d.sy) + d.dy / 2,
+          y1 = d.target.y + (overlapLinksAtTargets ? 0 : d.ty) + d.dy / 2;
       return "M" + x0 + "," + y0
            + "C" + x2 + "," + y0
            + " " + x3 + "," + y1
@@ -179,16 +199,32 @@ d3.sankey = function() {
       if (typeof target === "number") target = link.target = nodes[link.target];
       source.sourceLinks.push(link);
       target.targetLinks.push(link);
+      if ("value" in link)
+        link.value = Math.max(link.value, minValue);
+      else
+        link.value = minValue;
     });
   }
 
   // Compute the value (size) of each node by summing the associated links.
   function computeNodeValues() {
     nodes.forEach(function(node) {
-      node.value = Math.max(
-        d3.sum(node.sourceLinks, value),
-        d3.sum(node.targetLinks, value)
-      );
+      if ("value" in node)
+        node.value = Math.max(node.value, minValue);
+      else
+        node.value = minValue;
+      if (node.sourceLinks.length > 0) {
+        if (overlapLinksAtSources)
+          node.value = Math.max(node.value, d3.max(node.sourceLinks, value));
+        else
+          node.value = Math.max(node.value, d3.sum(node.sourceLinks, value));
+      }
+      if (node.targetLinks.length > 0) {
+        if (overlapLinksAtTargets)
+          node.value = Math.max(node.value, d3.max(node.targetLinks, value));
+        else
+          node.value = Math.max(node.value, d3.sum(node.targetLinks, value));
+      }
     });
   }
 
@@ -437,7 +473,7 @@ d3.sankey = function() {
   
     return children;
   }
-  
+ 
   
   return sankey;
 };
