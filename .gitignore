@@ -1,0 +1,9 @@
+# Editor backup files and git/OS scraps
+*~
+*.diff
+*.patch
+*.bak
+.DS_Store
+
+# NodeJS dependencies
+node_modules
