@@ -1,9 +1,12 @@
 # Editor backup files and git/OS scraps
 *~
-*.diff
 *.patch
 *.bak
 .DS_Store
 
 # NodeJS dependencies
-node_modules
+node_modules                                 
+
+# build intermediates:
+d3.*.js
+
