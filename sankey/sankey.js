@@ -177,12 +177,12 @@ d3.sankey = function() {
       nodesByBreadth.forEach(function(nodes) {
         nodes.forEach(function(node, i) {
           node.y = i;
-          node.dy = node.value * ky;
+          node.dy = value(node) * ky;
         });
       });
 
       links.forEach(function(link) {
-        link.dy = link.value * ky;
+        link.dy = value(link) * ky;
       });
     }
 
@@ -285,7 +285,7 @@ d3.sankey = function() {
   }
 
   function value(link) {
-    return link.value;
+    return typeof target === "function" ? link.value(link) : link.value;
   }
 
   return sankey;
