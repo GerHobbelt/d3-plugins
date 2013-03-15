@@ -285,7 +285,7 @@ d3.sankey = function() {
   }
 
   function value(link) {
-    return typeof target === "function" ? link.value(link) : link.value;
+    return typeof link.value === "function" ? link.value(link) : link.value;
   }
 
   return sankey;
