@@ -224,12 +224,12 @@ d3.sankey = function() {
       nodesByBreadth.forEach(function(nodes) {
         nodes.forEach(function(node, i) {
           node.y = i;
-          node.dy = node.value * ky;
+          node.dy = value(node) * ky;
         });
       });
 
       links.forEach(function(link) {
-        link.dy = link.value * ky;
+        link.dy = value(link) * ky;
       });
     }
 
@@ -244,7 +244,7 @@ d3.sankey = function() {
       });
 
       function weightedSource(link) {
-        return center(link.source) * link.value;
+        return center(link.source) * value(link);
       }
     }
 
@@ -259,7 +259,7 @@ d3.sankey = function() {
       });
 
       function weightedTarget(link) {
-        return center(link.target) * link.value;
+        return center(link.target) * value(link);
       }
     }
 
@@ -332,7 +332,7 @@ d3.sankey = function() {
   }
 
   function value(link) {
-    return link.value;
+    return typeof link.value === "function" ? link.value(link) : link.value;
   }
 
   return sankey;
