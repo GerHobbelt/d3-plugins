@@ -1,4 +1,4 @@
-# Rollup (PivotGraph) Layout 
+# Rollup (PivotGraph) Layout
 
 Example: <http://bl.ocks.org/4343153>
 

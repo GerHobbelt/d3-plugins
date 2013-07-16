@@ -1,3 +1,12 @@
+
+
+/*
+ * ###########################################################
+ *
+ * D3 Plugin: force-labels
+ *
+ * ###########################################################
+ */
 (function() {
   d3.force_labels = function force_labels() {
     var labels = d3.layout.force();

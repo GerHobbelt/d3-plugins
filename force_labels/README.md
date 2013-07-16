@@ -2,7 +2,7 @@
 
 Demo: <http://bl.ocks.org/1691430/>
 
-Generates an automatic and dynamic positioning for labels, using the d3 force layout.   Once a```force_labels``` object has been created, simply call the bound function ```update``` with a selection of the objects you want to attach labels to as an argument.  The force_labels object is a d3.force object which allows full control over the charge, gravity, theta etc.   
+Generates an automatic and dynamic positioning for labels, using the d3 force layout.   Once a```force_labels``` object has been created, simply call the bound function ```update``` with a selection of the objects you want to attach labels to as an argument.  The force_labels object is a d3.force object which allows full control over the charge, gravity, theta etc.
 
 At each tick the following occurs:
 
@@ -24,6 +24,6 @@ function redrawLabels() {
         .attr("x2",function(d) { return d.labelPos.x})
         .attr("y2",function(d) { return d.labelPos.y});
 }
-```  
+```
 
 <https://github.com/ZJONSSON>
